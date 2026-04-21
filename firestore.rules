@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Helper Primitives
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // 4. Validation Blueprints
+    function isValidEvent(data) {
+      return data.keys().hasAll(['name', 'department', 'dateTime', 'venue', 'price', 'totalTickets', 'availableTickets'])
+        && data.keys().size() >= 7
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.department is string && data.department.size() > 0 && data.department.size() <= 100
+        && data.dateTime is string
+        && data.venue is string && data.venue.size() > 0
+        && data.price is number && data.price >= 0
+        && data.totalTickets is number && data.totalTickets >= 0
+        && data.availableTickets is number && data.availableTickets >= 0;
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['eventId', 'userName', 'userEmail', 'ticketsCount', 'totalAmount', 'paymentStatus'])
+        && data.eventId is string && isValidId(data.eventId)
+        && data.userName is string && data.userName.size() > 0
+        && data.userEmail is string && data.userEmail.size() > 0
+        && data.ticketsCount is number && data.ticketsCount > 0
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.paymentStatus in ['pending', 'paid', 'failed', 'cancelled'];
+    }
+
+    // 5. Collection Rules
+    
+    // Admins collection - used for RBAC
+    match /admins/{adminId} {
+      allow read, list: if isSignedIn(); 
+      allow create: if isSignedIn() && request.auth.uid == adminId;
+      allow update, delete: if false; // Admins cannot be modified/deleted once set in this logic
+    }
+
+    // Events
+    match /events/{eventId} {
+      allow read: if true; // Public can see events
+      allow create, update: if isAdmin() && isValidEvent(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Bookings
+    match /bookings/{bookingId} {
+      // Users can see their own bookings based on email (simplified) or we could require auth
+      // For this app, let's assume we use firebase auth for users too if they want to see "My Bookings"
+      // or we just allow them to 'get' if they have the ID.
+      // But rules say: NEVER trust client query scraping.
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userEmail == request.auth.token.email);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.userEmail == request.auth.token.email);
+      
+      // Users can create a booking
+      allow create: if isSignedIn() 
+        && isValidBooking(incoming())
+        && incoming().userEmail == request.auth.token.email
+        && exists(/databases/$(database)/documents/events/$(incoming().eventId));
+        
+      // Payments update paymentStatus (usually via Admin/System)
+      allow update: if (isAdmin() || (isSignedIn() && existing().userEmail == request.auth.token.email))
+        && isValidBooking(incoming())
+        && (
+          // Action: Mark as Paid
+          (incoming().diff(existing()).affectedKeys().hasAll(['paymentStatus', 'stripeSessionId']) && incoming().paymentStatus == 'paid') ||
+          // Action: Cancel
+          (incoming().diff(existing()).affectedKeys().hasAny(['paymentStatus']) && incoming().paymentStatus == 'cancelled')
+        );
+    }
+  }
+}

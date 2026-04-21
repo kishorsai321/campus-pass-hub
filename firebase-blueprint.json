@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "Event": {
+      "title": "Event",
+      "description": "Details of a campus event",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "department": { "type": "string" },
+        "dateTime": { "type": "string" },
+        "venue": { "type": "string" },
+        "price": { "type": "number" },
+        "totalTickets": { "type": "number" },
+        "availableTickets": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "department", "dateTime", "venue", "price", "totalTickets", "availableTickets"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A successful ticket purchase",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string" },
+        "eventName": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userDepartment": { "type": "string" },
+        "ticketsCount": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["pending", "paid", "failed"] },
+        "stripeSessionId": { "type": "string" },
+        "bookingDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["eventId", "userName", "userEmail", "ticketsCount", "totalAmount", "paymentStatus"]
+    }
+  },
+  "firestore": {
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Collection of all events"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Collection of all student/faculty bookings"
+    }
+  }
+}
