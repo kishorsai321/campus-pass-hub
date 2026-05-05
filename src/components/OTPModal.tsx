@@ -12,7 +12,7 @@ export default function OTPModal({ email, onVerify, onClose }: OTPModalProps) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timer, setTimer] = useState(30);
+  const [timer, setTimer] = useState(10);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -43,26 +43,30 @@ export default function OTPModal({ email, onVerify, onClose }: OTPModalProps) {
 
   const handleVerify = async () => {
     const code = otp.join('');
-    if (code.length < 6) return;
+    if (code.length < 6) {
+      setError('Please enter the full 6-digit code.');
+      return;
+    }
 
     setIsVerifying(true);
     setError(null);
 
-    // Mock verification: In demo, 123456 or any 6 digits work after a delay
-    await new Promise(r => setTimeout(r, 1500));
-
-    if (code === '000000') { // Let's say 000000 is an purposeful error for demo
-       setError('Invalid verification code. Please try again.');
-       setIsVerifying(false);
-    } else {
-       onVerify();
-    }
+    // Mock verification delay
+    setTimeout(() => {
+      if (code === '000000') {
+        setError('Invalid verification code. Please try again.');
+        setIsVerifying(false);
+      } else {
+        onVerify();
+      }
+    }, 1000);
   };
 
   const handleResend = () => {
-    setTimer(30);
+    setTimer(10);
     setOtp(['', '', '', '', '', '']);
-    setError(null);
+    setError('New code "sent" to your email. (Hint: Try 123456)');
+    setTimeout(() => setError(null), 3000);
   };
 
   return (
@@ -77,6 +81,7 @@ export default function OTPModal({ email, onVerify, onClose }: OTPModalProps) {
         <button 
           onClick={onClose}
           className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors"
+          type="button"
         >
           <X size={20} />
         </button>
@@ -87,9 +92,13 @@ export default function OTPModal({ email, onVerify, onClose }: OTPModalProps) {
           </div>
 
           <h2 className="text-xl font-bold text-white mb-2">Verify Your Account</h2>
-          <p className="text-zinc-400 text-sm mb-8">
+          <p className="text-zinc-400 text-sm mb-6">
             We've sent a 6-digit verification code to <br />
             <span className="text-zinc-200 font-medium">{email}</span>
+          </p>
+          
+          <p className="text-[10px] text-indigo-400/60 font-medium uppercase tracking-widest mb-4">
+            Hint: Enter 123456
           </p>
 
           <div className="flex gap-2 mb-8">
@@ -98,6 +107,8 @@ export default function OTPModal({ email, onVerify, onClose }: OTPModalProps) {
                 key={i}
                 id={`otp-${i}`}
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength={1}
                 value={digit}
                 onChange={(e) => handleChange(i, e.target.value)}
@@ -108,15 +119,18 @@ export default function OTPModal({ email, onVerify, onClose }: OTPModalProps) {
           </div>
 
           {error && (
-            <p className="text-red-400 text-xs mb-6 bg-red-400/10 py-2 px-4 rounded-lg border border-red-400/20 w-full">
+            <p className={`text-xs mb-6 py-2 px-4 rounded-lg border w-full ${
+              error.includes('sent') ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-red-400 bg-red-400/10 border-red-400/20'
+            }`}>
               {error}
             </p>
           )}
 
           <button
             onClick={handleVerify}
+            type="button"
             disabled={otp.join('').length < 6 || isVerifying}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-semibold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:grayscale text-white font-semibold py-4 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
           >
             {isVerifying ? (
               <>
@@ -134,7 +148,11 @@ export default function OTPModal({ email, onVerify, onClose }: OTPModalProps) {
               <span className="text-zinc-400 font-medium">Resend in {timer}s</span>
             ) : (
               <button 
-                onClick={handleResend}
+                type="button"
+                onClick={() => {
+                  console.log("Resend clicked");
+                  handleResend();
+                }}
                 className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 transition-colors"
               >
                 <RefreshCw size={14} />

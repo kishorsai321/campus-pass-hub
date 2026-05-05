@@ -53,7 +53,7 @@ export default function BookingSummary({ booking, event, onReset }: BookingSumma
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Total Fee Paid</p>
-              <p className="text-sky-400 font-black text-2xl">${booking.totalAmount}</p>
+              <p className="text-sky-400 font-black text-2xl">₹{booking.totalAmount}</p>
             </div>
           </div>
 
@@ -61,7 +61,7 @@ export default function BookingSummary({ booking, event, onReset }: BookingSumma
             <div className="flex justify-between items-center mb-6">
               <div>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Pass Hash ID</p>
-                <p className="font-mono text-slate-300 text-xs">{booking.id.toUpperCase()}</p>
+                <p className="font-mono text-slate-300 text-xs">{String(booking.id).slice(0, 8).toUpperCase()}</p>
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Timestamp</p>

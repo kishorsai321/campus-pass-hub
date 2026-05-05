@@ -30,9 +30,12 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
   const [isProcessing, setIsProcessing] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
 
+  const today = new Date().toISOString().split('T')[0];
+  const isPastDeadline = event.registrationDeadline && today > event.registrationDeadline;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (isProcessing) return;
+    if (isProcessing || isPastDeadline) return;
     
     setError(null);
 
@@ -88,6 +91,12 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
           bookingId: bookingId
         }),
       });
+
+      if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Session Error Response:", errorText);
+          throw new Error('Payment gateway synchronization error. Please try again.');
+      }
 
       const { id: sessionId, error: stripeError } = await response.json();
 
@@ -208,17 +217,22 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
           <div className="p-6 bg-sky-500/5 border border-sky-500/10 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Payable Amount</span>
-              <span className="text-2xl font-black text-white">$ {(parseInt(formData.tickets || '0') * event.price).toFixed(2)}</span>
+              <span className="text-2xl font-black text-white">₹{(parseInt(formData.tickets || '0') * event.price).toFixed(2)}</span>
             </div>
             <button
               type="submit"
-              disabled={isProcessing}
+              disabled={isProcessing || isPastDeadline}
               className="btn-primary px-10 py-4 text-sm tracking-wide w-full sm:w-auto flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Securing...
+                </>
+              ) : isPastDeadline ? (
+                <>
+                  <XCircle className="w-5 h-5 text-red-400" />
+                  Registration Closed
                 </>
               ) : (
                 <>
@@ -228,6 +242,11 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
               )}
             </button>
           </div>
+          {isPastDeadline && (
+            <p className="text-center text-[10px] text-red-400/80 font-bold uppercase tracking-widest mt-4">
+              Error: The last date for institutional registration ({event.registrationDeadline}) has passed.
+            </p>
+          )}
         </div>
       </form>
       

@@ -28,4 +28,16 @@
   .badge {
     @apply bg-sky-400/15 text-sky-400 text-[0.75rem] font-semibold px-3 py-1 rounded-full border border-sky-400/30 uppercase tracking-wider;
   }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-700/50 rounded-full transition-colors hover:bg-sky-500/30;
+  }
 }

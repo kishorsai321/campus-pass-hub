@@ -29,7 +29,7 @@ export default function EventMap({ lat = 37.42, lng = -122.08, venueName = "Camp
         
         {/* Subtle Hint for Devs */}
         <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <span className="text-[8px] text-zinc-400 bg-black/20 px-2 py-0.5 rounded">Demo Mode</span>
+           <span className="text-[8px] text-zinc-400 bg-black/20 px-2 py-0.5 rounded">Campus Maps</span>
         </div>
       </div>
     );

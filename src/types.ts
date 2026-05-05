@@ -4,7 +4,7 @@
  */
 
 export interface EventData {
-  id: string;
+  id: string | number;
   name: string;
   department: string;
   dateTime: string;
@@ -12,14 +12,16 @@ export interface EventData {
   price: number;
   totalTickets: number;
   availableTickets: number;
+  imageUrl?: string;
+  registrationDeadline: string;
   lat?: number;
   lng?: number;
   createdAt?: string;
 }
 
 export interface BookingData {
-  id: string;
-  eventId: string;
+  id: string | number;
+  eventId: string | number;
   eventName: string;
   userName: string;
   userEmail: string;

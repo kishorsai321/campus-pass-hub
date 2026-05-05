@@ -4,11 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { db, handleFirestoreError } from '../lib/firebase';
 import { api } from '../services/api';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, increment } from 'firebase/firestore';
 import { BookingData, EventData } from '../types';
-import { Ticket, Calendar, MapPin, Hash, CheckCircle, Clock, AlertCircle, XCircle, Loader2 } from 'lucide-react';
+import { Ticket, Calendar, MapPin, Hash, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface MyBookingsProps {
@@ -19,7 +17,7 @@ interface MyBookingsProps {
 
 export default function MyBookings({ userEmail, onViewSummary, events }: MyBookingsProps) {
   const [userBookings, setUserBookings] = useState<BookingData[]>([]);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const handleCancelTicket = async (e: React.MouseEvent, booking: BookingData) => {
@@ -121,7 +119,7 @@ export default function MyBookings({ userEmail, onViewSummary, events }: MyBooki
                          {booking.paymentStatus === 'paid' ? <CheckCircle className="w-3 h-3" /> : booking.paymentStatus === 'cancelled' ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                          {booking.paymentStatus}
                        </span>
-                       <span className="text-[10px] font-mono text-slate-500 uppercase">#{booking.id.slice(0, 8)}</span>
+                       <span className="text-[10px] font-mono text-slate-500 uppercase">#{String(booking.id).slice(0, 8)}</span>
                     </div>
 
                     <h3 className="text-xl font-black text-white group-hover:text-sky-400 transition-colors uppercase tracking-tight mb-2">
@@ -147,7 +145,7 @@ export default function MyBookings({ userEmail, onViewSummary, events }: MyBooki
                   <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
                     <div className="text-center md:text-right">
                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-0.5">Value</p>
-                      <p className={`text-2xl font-black text-white ${booking.paymentStatus === 'cancelled' ? 'line-through opacity-40' : ''}`}>${booking.totalAmount}</p>
+                      <p className={`text-2xl font-black text-white ${booking.paymentStatus === 'cancelled' ? 'line-through opacity-40' : ''}`}>₹{booking.totalAmount}</p>
                     </div>
 
                     <div className="flex items-center gap-3 w-full md:w-auto">

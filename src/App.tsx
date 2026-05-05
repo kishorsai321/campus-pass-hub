@@ -17,19 +17,21 @@ import { api } from './services/api';
 import { collection, query, onSnapshot, orderBy, doc, getDoc, updateDoc, increment, setDoc, getDocs, limit } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Settings, User, CreditCard, GraduationCap, School, Loader2, Mail, Lock, AlertCircle, Compass, Ticket, Layout, Menu, X as CloseIcon, Calendar, MapPin, Hash, CheckCircle, XCircle } from 'lucide-react';
+import { LogIn, LogOut, Settings, User, CreditCard, GraduationCap, School, Loader2, Mail, Lock, AlertCircle, Compass, Ticket, Layout, LayoutDashboard, Menu, X as CloseIcon, Calendar, MapPin, Hash, CheckCircle, XCircle } from 'lucide-react';
 
 const INITIAL_EVENT: EventData = {
-  id: 'event-1',
-  name: 'Global Tech Seminar 2026',
-  department: 'Computer Science & Engineering',
-  dateTime: 'May 15, 2026 • 10:00 AM - 4:00 PM',
-  venue: 'Main Auditorium, North Campus',
-  price: 25,
-  totalTickets: 250,
-  availableTickets: 142,
-  lat: 17.3850,
-  lng: 78.4867 // Default to a central campus location
+  id: 'event-2',
+  name: 'Global Innovation Summit',
+  department: 'Computer Science',
+  dateTime: 'May 20, 2026 • 09:30 AM',
+  venue: 'Tech Center Hall 1',
+  price: 99,
+  totalTickets: 50,
+  availableTickets: 50,
+  imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800',
+  registrationDeadline: '2026-05-19',
+  lat: 17.3860,
+  lng: 78.4870 // Default to a central campus location
 };
 
 export default function App() {
@@ -49,6 +51,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [activeSlide, setActiveSlide] = useState(0);
+  const [selectedEventId, setSelectedEventId] = useState<string | number | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
 
@@ -61,30 +64,30 @@ export default function App() {
 
   const slides = [
     {
-      title: 'THE FUTURE OF CAMPUS ACCESS.',
-      desc: 'A centralized, secure digital environment for all campus events and organizational activities.',
+      title: 'THE CAMPUS EVENT ECOSYSTEM.',
+      desc: 'The official digital gateway for academic seminars, technical symposiums, and cultural fests.',
       features: [
-        { title: 'Digital Credentials', desc: 'Secure institutional identity verification.' },
-        { title: 'Smart QR Passes', desc: 'Instant check-ins via encrypted mobile codes.' },
-        { title: 'Real-time Updates', desc: 'Live event tracking and department feed.' }
+        { title: 'Student IDs', desc: 'Secure institutional identity verification.' },
+        { title: 'Campus Passes', desc: 'Instant check-ins for venue entries.' },
+        { title: 'Live Feeds', desc: 'Real-time department event tracking.' }
       ]
     },
     {
-      title: 'SEAMLESS EVENT BOOKING.',
-      desc: 'Reserve your spot in seminars, tech-talks and department fests with a few clicks.',
+      title: 'ACADEMIC EVENT DISCOVERY.',
+      desc: 'Browse and book slots for guest lectures, workshops, and inter-college competitions.',
       features: [
-        { title: 'Instant Reservations', desc: 'No more long queues or physical forms.' },
-        { title: 'Payment Integration', desc: 'Secure campus-wide payment gateways.' },
-        { title: 'Booking History', desc: 'Keep track of all your attended events.' }
+        { title: 'Department Access', desc: 'Events categorized by academic faculty.' },
+        { title: 'Smart Scheduling', desc: 'Sync your academic calendar with events.' },
+        { title: 'Certificate Ready', desc: 'Automatic attendance for credit workshops.' }
       ]
     },
     {
-      title: 'VALIDATE IN TIGHT SECONDS.',
-      desc: 'Premium verification interface for security staff to ensure authenticated entries.',
+      title: 'CAMPUS-WIDE VERIFICATION.',
+      desc: 'Robust tools for student coordinators and security to manage authenticated entries.',
       features: [
-        { title: 'Holographic Passes', desc: 'Tamper-proof digital ticket designs.' },
-        { title: 'Admin Controls', desc: 'Comprehensive event management tools.' },
-        { title: 'Attendee Analytics', desc: 'Understand event turnout and engagement.' }
+        { title: 'Admin Controls', desc: 'Manage event capacity and student lists.' },
+        { title: 'Secured entries', desc: 'Verify student legitimacy via institutional DB.' },
+        { title: 'Event Insights', desc: 'Analytics on student engagement and participation.' }
       ]
     }
   ];
@@ -95,6 +98,19 @@ export default function App() {
         setActiveSlide((prev) => (prev + 1) % slides.length);
       }, 5000);
       return () => clearInterval(timer);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      // Request geolocation on login
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          () => console.log("Location access granted"),
+          (err) => console.warn("Location access denied:", err),
+          { enableHighAccuracy: true }
+        );
+      }
     }
   }, [user]);
 
@@ -219,7 +235,7 @@ export default function App() {
     );
   }
 
-  const selectedEvent = events.length > 0 ? events[0] : INITIAL_EVENT;
+  const selectedEvent = events.find(e => e.id === selectedEventId) || (events.length > 0 ? events[0] : INITIAL_EVENT);
 
   return (
     <div className="min-h-screen bg-[#0f172a] py-4 lg:py-12 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-500 overflow-x-hidden">
@@ -256,23 +272,11 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="mb-6 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 mx-1">
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${dbConnected === true ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'}`} />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    {dbConnected === true ? 'MySQL Connected' : 'MySQL Demo Mode'}
-                  </span>
-                </div>
-                {dbConnected === false && (
-                  <p className="text-[9px] text-slate-500 mt-1 leading-tight">Using local JS mock data. To use real SQL, setup MySQL locally.</p>
-                )}
-              </div>
-
               <div className="space-y-1 mb-10">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 mb-4">Discovery Hub</p>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 mb-4">University Discovery Hub</p>
                 {[
-                  { id: 'explore', label: 'Explore Events', icon: Compass, tab: 'explore', view: 'user' },
-                  { id: 'my-bookings', label: 'My Bookings', icon: Ticket, tab: 'my-bookings', view: 'user' },
+                  { id: 'explore', label: 'Campus Events', icon: School, tab: 'explore', view: 'user' },
+                  { id: 'my-bookings', label: 'My Registrations', icon: Ticket, tab: 'my-bookings', view: 'user' },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -380,19 +384,60 @@ export default function App() {
                     <MyBookings userEmail={user?.email || ''} onViewSummary={setCurrentBooking} events={events} />
                   </motion.div>
                 ) : (
-                  <motion.div
-                    key="booking-flow"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.4 }}
-                    className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch"
-                  >
-                    <div className="xl:col-span-1">
-                      <EventDetails event={selectedEvent} />
-                    </div>
-                    <div className="xl:col-span-2">
-                       {events.length > 0 ? (
+                  <div className="space-y-10">
+                    {/* Event Selector - Horizontal Scroll */}
+                    <section className="relative">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] px-1">Institutional Events</h3>
+                        <span className="text-[10px] text-sky-400 font-bold bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">{events.length} Department Fests</span>
+                      </div>
+                      <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar scroll-smooth">
+                        {events.map((e) => (
+                          <button
+                            key={e.id}
+                            onClick={() => setSelectedEventId(e.id)}
+                            className={`flex-shrink-0 w-64 glass-card p-4 text-left transition-all group relative overflow-hidden border ${
+                              (selectedEventId === e.id || (!selectedEventId && events[0]?.id === e.id))
+                                ? 'border-sky-500/50 bg-sky-500/5 ring-1 ring-sky-500/20' 
+                                : 'border-white/5 hover:border-white/20'
+                            }`}
+                          >
+                            {e.imageUrl && (
+                              <div className="w-full h-32 mb-3 rounded-xl overflow-hidden border border-white/5">
+                                <img 
+                                  src={e.imageUrl} 
+                                  alt={e.name} 
+                                  className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                                  referrerPolicy="no-referrer" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&q=80&w=800';
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <p className="text-[9px] font-bold text-sky-400 uppercase tracking-widest mb-1">{e.department}</p>
+                            <h4 className="text-white font-bold text-sm leading-tight line-clamp-1">{e.name}</h4>
+                            <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" /> {e.dateTime.split('•')[0]}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    <motion.div
+                      key={selectedEvent.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      transition={{ duration: 0.4 }}
+                      className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch"
+                    >
+                      <div className="xl:col-span-1">
+                        <EventDetails event={selectedEvent} />
+                      </div>
+                      <div className="xl:col-span-2">
+                         {events.length > 0 ? (
                          <BookingForm 
                            event={selectedEvent} 
                            user={user}
@@ -411,6 +456,7 @@ export default function App() {
                        )}
                     </div>
                   </motion.div>
+                </div>
                 )}
               </AnimatePresence>
             </main>

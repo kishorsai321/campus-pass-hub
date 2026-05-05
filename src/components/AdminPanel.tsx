@@ -6,7 +6,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { api } from '../services/api';
 import { EventData, BookingData } from '../types';
-import { Plus, Edit2, Trash2, LayoutDashboard, Calendar, Users, DollarSign, X, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, LayoutDashboard, Calendar, Users, IndianRupee, X, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function AdminPanel() {
@@ -36,6 +36,8 @@ export default function AdminPanel() {
     price: '',
     totalTickets: '',
     availableTickets: '',
+    imageUrl: '',
+    registrationDeadline: '',
     lat: '',
     lng: ''
   });
@@ -76,6 +78,8 @@ export default function AdminPanel() {
       price: Number(formData.price),
       totalTickets: Number(formData.totalTickets),
       availableTickets: Number(formData.availableTickets || formData.totalTickets),
+      imageUrl: formData.imageUrl,
+      registrationDeadline: formData.registrationDeadline,
       lat: formData.lat ? Number(formData.lat) : undefined,
       lng: formData.lng ? Number(formData.lng) : undefined
     };
@@ -103,6 +107,8 @@ export default function AdminPanel() {
       price: String(event.price),
       totalTickets: String(event.totalTickets),
       availableTickets: String(event.availableTickets),
+      imageUrl: event.imageUrl || '',
+      registrationDeadline: event.registrationDeadline || '',
       lat: event.lat ? String(event.lat) : '',
       lng: event.lng ? String(event.lng) : ''
     });
@@ -121,7 +127,7 @@ export default function AdminPanel() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', department: '', dateTime: '', venue: '', price: '', totalTickets: '', availableTickets: '', lat: '', lng: '' });
+    setFormData({ name: '', department: '', dateTime: '', venue: '', price: '', totalTickets: '', availableTickets: '', imageUrl: '', registrationDeadline: '', lat: '', lng: '' });
     setEditingEvent(null);
     setIsAddingMode(false);
   };
@@ -144,11 +150,11 @@ export default function AdminPanel() {
             <p className="text-2xl font-bold text-white">{bookings.length}</p>
           </div>
         </div>
-        <div className="glass-card p-6 flex items-center gap-4 border-sky-500/20">
-          <div className="p-3 bg-sky-500/10 rounded-2xl"><DollarSign className="w-6 h-6 text-sky-400" /></div>
+        <div className="glass-card p-6 flex items-center gap-4 border-emerald-500/20">
+          <div className="p-3 bg-emerald-500/10 rounded-2xl"><IndianRupee className="w-6 h-6 text-emerald-400" /></div>
           <div>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Revenue</p>
-            <p className="text-2xl font-bold text-sky-400">${totalRevenue.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-emerald-400">₹{totalRevenue.toFixed(2)}</p>
           </div>
         </div>
       </div>
@@ -158,9 +164,11 @@ export default function AdminPanel() {
         <div className="xl:col-span-2 space-y-8">
           <div className="glass-card overflow-hidden">
             <div className="p-6 border-b border-white/5 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <LayoutDashboard className="w-5 h-5 text-sky-400" /> Event Management
-              </h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <LayoutDashboard className="w-5 h-5 text-sky-400" /> Event Management
+                </h3>
+              </div>
               <button 
                 onClick={() => setIsAddingMode(true)}
                 className="badge py-2 px-4 hover:bg-sky-400/20 transition-colors cursor-pointer flex items-center gap-2"
@@ -186,7 +194,7 @@ export default function AdminPanel() {
                         <p className="text-xs text-slate-500">{event.department}</p>
                         <p className="text-[10px] font-mono text-sky-400/50 mt-1">ID: {event.id}</p>
                       </td>
-                      <td className="p-4 text-slate-300 font-mono text-sm">${event.price}</td>
+                      <td className="p-4 text-slate-300 font-mono text-sm">₹{event.price}</td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-slate-900 h-1.5 rounded-full overflow-hidden w-20">
@@ -230,10 +238,10 @@ export default function AdminPanel() {
                     <div className="min-w-0 flex-1 pr-4">
                       <p className="text-sm font-bold text-white truncate group-hover:text-sky-400 transition-colors">{booking.userName}</p>
                       <p className="text-[10px] text-slate-500 truncate">{booking.eventName}</p>
-                      <p className="text-[9px] text-slate-600 mt-0.5 font-mono">#{booking.id.slice(0, 8).toUpperCase()}</p>
+                      <p className="text-[9px] text-slate-600 mt-0.5 font-mono">#{String(booking.id).slice(0, 8).toUpperCase()}</p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-2 shrink-0">
-                      <p className="text-sm font-bold text-sky-400">${booking.totalAmount}</p>
+                      <p className="text-sm font-bold text-sky-400">₹{booking.totalAmount}</p>
                       <div className="flex items-center gap-2">
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-widest border ${
                           booking.paymentStatus === 'paid' 
@@ -282,17 +290,20 @@ export default function AdminPanel() {
                 className="glass-card p-8 shadow-2xl border-sky-500/20 ring-1 ring-white/5"
               >
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-white">{editingEvent ? 'Edit Event' : 'New Event'}</h2>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">{editingEvent ? 'Edit College Event' : 'New Institutional Event'}</h2>
+                    <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-bold">University Event Coordinator Portal</p>
+                  </div>
                   <button onClick={resetForm} className="text-slate-500 hover:text-white"><X className="w-6 h-6" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Event Title</label>
-                    <input required className="input-field" placeholder="Nexus Pro 2026" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                    <input required className="input-field" placeholder="Campus Fest 2026" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Department</label>
-                    <input required className="input-field" placeholder="Computer Science" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} />
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Organizing Department</label>
+                    <input required className="input-field" placeholder="Computer Science & Engineering" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Date & Time</label>
@@ -300,7 +311,16 @@ export default function AdminPanel() {
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Venue</label>
-                    <input required className="input-field" placeholder="Campus Hall A" value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} />
+                    <input required className="input-field" placeholder="Main University Auditorium" value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Registration Deadline</label>
+                    <input required type="date" className="input-field" value={formData.registrationDeadline} onChange={(e) => setFormData({...formData, registrationDeadline: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Image URL</label>
+                    <p className="text-[9px] text-sky-400/60 mb-2 italic">Tip: Use high-quality Unsplash URLs for campus branding.</p>
+                    <input className="input-field" placeholder="https://images.unsplash.com/photo-..." value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -314,8 +334,8 @@ export default function AdminPanel() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Price ($)</label>
-                      <input required type="number" className="input-field" placeholder="25" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Price (₹)</label>
+                      <input required type="number" className="input-field" placeholder="499" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Capacity</label>
