@@ -373,7 +373,7 @@ export default function App() {
             )}
 
             {/* Content Area */}
-            <main className="flex-1 w-full pb-20">
+            <main className="flex-1 w-full pb-20 min-w-0">
               <AnimatePresence mode="wait">
                 {currentBooking ? (
                    <motion.div key="summary-view" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.4 }}>

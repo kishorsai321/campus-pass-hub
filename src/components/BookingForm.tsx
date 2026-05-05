@@ -11,7 +11,17 @@ import { loadStripe } from '@stripe/stripe-js';
 import OTPModal from './OTPModal';
 
 // Lazy initialization of Stripe client
-const stripePromise = loadStripe((import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY);
+const getStripePromise = () => {
+  const key = (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY;
+  // Only attempt to load Stripe if the key exists and looks valid
+  if (key && typeof key === 'string' && key.startsWith('pk_')) {
+    return loadStripe(key);
+  }
+  console.warn("VITE_STRIPE_PUBLISHABLE_KEY is missing or invalid. Stripe checkout will be unavailable.");
+  return null;
+};
+
+const stripePromise = getStripePromise();
 
 interface BookingFormProps {
   event: EventData;
@@ -140,13 +150,13 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
   };
 
   return (
-    <div className="glass-card p-10 h-full flex flex-col">
-      <div className="mb-8">
+    <div className="glass-card p-6 lg:p-8 h-full flex flex-col overflow-hidden">
+      <div className="mb-6">
         <h2 className="text-2xl font-semibold text-white">Reserve Your Spot</h2>
         <p className="text-slate-400 text-sm mt-1">Complete the details to proceed to secure checkout.</p>
       </div>
       
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-x-4 gap-y-4">
         <div className="space-y-2">
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-2 block">
             Attendee Name
@@ -206,7 +216,7 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
           </div>
         </div>
 
-        <div className="col-span-1 md:col-span-2">
+        <div className="lg:col-span-2">
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[11px] mb-4 animate-in slide-in-from-top-1">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -214,15 +224,15 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
             </div>
           )}
 
-          <div className="p-6 bg-sky-500/5 border border-sky-500/10 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex flex-col">
+          <div className="p-4 bg-sky-500/5 border border-sky-500/10 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="flex flex-col text-center sm:text-left">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Payable Amount</span>
-              <span className="text-2xl font-black text-white">₹{(parseInt(formData.tickets || '0') * event.price).toFixed(2)}</span>
+              <span className="text-xl font-black text-white">₹{(parseInt(formData.tickets || '0') * event.price).toFixed(2)}</span>
             </div>
             <button
               type="submit"
               disabled={isProcessing || isPastDeadline}
-              className="btn-primary px-10 py-4 text-sm tracking-wide w-full sm:w-auto flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary px-6 py-3 text-sm tracking-wide w-full sm:w-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {isProcessing ? (
                 <>
