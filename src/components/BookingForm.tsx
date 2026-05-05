@@ -224,15 +224,15 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
             </div>
           )}
 
-          <div className="p-4 bg-sky-500/5 border border-sky-500/10 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div className="flex flex-col text-center sm:text-left">
+          <div className="p-4 bg-sky-500/5 border border-sky-500/10 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex flex-col text-center md:text-left">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Payable Amount</span>
               <span className="text-xl font-black text-white">₹{(parseInt(formData.tickets || '0') * event.price).toFixed(2)}</span>
             </div>
             <button
               type="submit"
               disabled={isProcessing || isPastDeadline}
-              className="btn-primary px-6 py-3 text-sm tracking-wide w-full sm:w-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="btn-primary px-6 py-3 text-sm tracking-wide w-full md:w-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
                 <>
