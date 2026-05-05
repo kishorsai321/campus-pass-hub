@@ -20,6 +20,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  multipleStatements: true, // Enable multiple statements
   connectTimeout: 5000 // 5s timeout to fail fast
 });
 
@@ -64,6 +65,13 @@ async function testDbConnection() {
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Ensure registrationDeadline column exists if table was already created
+    try {
+      await connection.query("ALTER TABLE events ADD COLUMN registrationDeadline VARCHAR(100)");
+    } catch (e) {
+      // Column might already exist, ignore error
+    }
     
     await connection.query(`
       CREATE TABLE IF NOT EXISTS bookings (
