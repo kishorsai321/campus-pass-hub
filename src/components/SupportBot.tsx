@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
-import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { api } from '../services/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -34,19 +32,15 @@ export default function SupportBot() {
     setIsLoading(true);
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: userMessage,
-        config: {
-          systemInstruction: "You are a helpful campus event assistant. Answer questions about bookings, events, and campus life. Keep responses concise and friendly. If you don't know something, ask them to contact the support team at support@campuspass.edu.",
-        }
-      });
-
-      const assistantMessage = response.text || "I'm sorry, I couldn't process that.";
+      const assistantMessage = await api.chat(userMessage);
       setMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Oops! Something went wrong. Please try again later." }]);
+      const errorMessage = error.message?.includes("configured") 
+        ? "AI Assistant is currently offline. Please check back later."
+        : "Oops! I encountered an error. Please try again.";
+        
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMessage }]);
     } finally {
       setIsLoading(false);
     }

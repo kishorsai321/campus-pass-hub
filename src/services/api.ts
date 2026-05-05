@@ -72,5 +72,22 @@ export const api = {
     if (!res.ok) return false;
     const { isAdmin } = await res.json();
     return isAdmin;
+  },
+
+  // --- AI Chat ---
+  async chat(message: string): Promise<string> {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to get AI response');
+    }
+    
+    const { text } = await res.json();
+    return text;
   }
 };

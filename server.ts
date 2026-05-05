@@ -4,11 +4,22 @@ import path from "path";
 import Stripe from "stripe";
 import dotenv from "dotenv";
 import mysql from "mysql2/promise";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Initialize Gemini safely
+let genAI: GoogleGenAI | null = null;
+try {
+  if (process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+  }
+} catch (e) {
+  console.error("Failed to initialize Gemini:", e);
+}
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
@@ -110,12 +121,14 @@ async function testDbConnection() {
         ('Robotics & Automation Day', 'Engineering Wing', 'June 25, 2026 • 09:00 AM', 'Robotics Bay', 75.00, 120, 120, 'https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?auto=format&fit=crop&q=80&w=800', '2026-06-24', 17.3900, 78.4920)
       `);
     } else {
-      // Update existing default records with fresh images and remove deprecated ones
-      await connection.query(`
-        DELETE FROM events WHERE name = 'Annual Technical Symposium';
-        UPDATE events SET imageUrl = 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800' WHERE name = 'Global Innovation Summit';
-        UPDATE events SET imageUrl = 'https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?auto=format&fit=crop&q=80&w=800' WHERE name = 'Robotics & Automation Day';
-      `);
+      // Update existing default records with fresh images
+      try {
+        await connection.query("DELETE FROM events WHERE name = 'Annual Technical Symposium'");
+        await connection.query("UPDATE events SET imageUrl = 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800' WHERE name = 'Global Innovation Summit'");
+        await connection.query("UPDATE events SET imageUrl = 'https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?auto=format&fit=crop&q=80&w=800' WHERE name = 'Robotics & Automation Day'");
+      } catch (err) {
+        console.warn("Table cleanup warning (non-critical):", err);
+      }
     }
 
     console.log("✅ System Verification Complete.");
@@ -163,78 +176,110 @@ function getStripe(): Stripe {
 
 app.use(express.json());
 
+// AI Chat Endpoint
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
+  
+  if (!genAI) {
+    return res.status(503).json({ error: "AI assistant is not configured. Please add GEMINI_API_KEY to your .env file." });
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: "You are a helpful campus event assistant. Answer questions about bookings, events, and campus life. Keep responses concise and friendly."
+    });
+
+    const result = await model.generateContent(message);
+    const response = await result.response;
+    const text = response.text();
+    
+    res.json({ text });
+  } catch (error) {
+    console.error("AI Error:", error);
+    res.status(500).json({ error: "Failed to generate AI response" });
+  }
+});
+
 // --- MySQL API Endpoints ---
 
 // Get all events
 app.get("/api/events", async (req, res) => {
-    if (!isDbConnected) {
-    return res.json([{
-      id: 2,
-      name: "Global Innovation Summit",
-      department: "Computer Science",
-      dateTime: "May 20, 2026 • 09:30 AM",
-      venue: "Tech Center Hall 1",
-      price: 99.00,
-      totalTickets: 50,
-      availableTickets: 50,
-      imageUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800",
-      registrationDeadline: "2026-05-19",
-      lat: 17.3860,
-      lng: 78.4870
-    }, {
-      id: 3,
-      name: "Digital Marketing Workshop",
-      department: "School of Business",
-      dateTime: "June 05, 2026 • 11:00 AM",
-      venue: "Business Block B",
-      price: 25.00,
-      totalTickets: 200,
-      availableTickets: 200,
-      imageUrl: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=800",
-      registrationDeadline: "2026-06-04",
-      lat: 17.3870,
-      lng: 78.4890
-    }, {
-      id: 4,
-      name: "Entrepreneurship Bootcamp",
-      department: "Entrepreneurship Cell",
-      dateTime: "June 10, 2026 • 08:00 AM",
-      venue: "Convention Centre",
-      price: 35.00,
-      totalTickets: 500,
-      availableTickets: 500,
-      imageUrl: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=800",
-      registrationDeadline: "2026-06-09",
-      lat: 17.3880,
-      lng: 78.4900
-    }, {
-      id: 5,
-      name: "Literature & Debate Fest",
-      department: "Department of English",
-      dateTime: "June 18, 2026 • 06:30 PM",
-      venue: "Library Hall A",
-      price: 20.00,
-      totalTickets: 400,
-      availableTickets: 400,
-      imageUrl: "https://images.unsplash.com/photo-1491841573634-28140fc7ced7?auto=format&fit=crop&q=80&w=800",
-      registrationDeadline: "2026-06-17",
-      lat: 17.3890,
-      lng: 78.4910
-    }, {
-      id: 6,
-      name: "Robotics & Automation Day",
-      department: "Engineering Wing",
-      dateTime: "June 25, 2026 • 09:00 AM",
-      venue: "Robotics Bay",
-      price: 75.00,
-      totalTickets: 120,
-      availableTickets: 120,
-      imageUrl: "https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?auto=format&fit=crop&q=80&w=800",
-      registrationDeadline: "2026-06-24",
-      lat: 17.3900,
-      lng: 78.4920
-    }]);
+  if (!isDbConnected) {
+    return res.json([
+      {
+        id: 2,
+        name: "Global Innovation Summit",
+        department: "Computer Science",
+        dateTime: "May 20, 2026 • 09:30 AM",
+        venue: "Tech Center Hall 1",
+        price: 99.00,
+        totalTickets: 50,
+        availableTickets: 50,
+        imageUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800",
+        registrationDeadline: "2026-05-19",
+        lat: 17.3860,
+        lng: 78.4870
+      },
+      {
+        id: 3,
+        name: "Digital Marketing Workshop",
+        department: "School of Business",
+        dateTime: "June 05, 2026 • 11:00 AM",
+        venue: "Business Block B",
+        price: 25.00,
+        totalTickets: 200,
+        availableTickets: 200,
+        imageUrl: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=800",
+        registrationDeadline: "2026-06-04",
+        lat: 17.3870,
+        lng: 78.4890
+      },
+      {
+        id: 4,
+        name: "Entrepreneurship Bootcamp",
+        department: "Entrepreneurship Cell",
+        dateTime: "June 10, 2026 • 08:00 AM",
+        venue: "Convention Centre",
+        price: 35.00,
+        totalTickets: 500,
+        availableTickets: 500,
+        imageUrl: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=800",
+        registrationDeadline: "2026-06-09",
+        lat: 17.3880,
+        lng: 78.4900
+      },
+      {
+        id: 5,
+        name: "Literature & Debate Fest",
+        department: "Department of English",
+        dateTime: "June 18, 2026 • 06:30 PM",
+        venue: "Library Hall A",
+        price: 20.00,
+        totalTickets: 400,
+        availableTickets: 400,
+        imageUrl: "https://images.unsplash.com/photo-1491841573634-28140fc7ced7?auto=format&fit=crop&q=80&w=800",
+        registrationDeadline: "2026-06-17",
+        lat: 17.3890,
+        lng: 78.4910
+      },
+      {
+        id: 6,
+        name: "Robotics & Automation Day",
+        department: "Engineering Wing",
+        dateTime: "June 25, 2026 • 09:00 AM",
+        venue: "Robotics Bay",
+        price: 75.00,
+        totalTickets: 120,
+        availableTickets: 120,
+        imageUrl: "https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?auto=format&fit=crop&q=80&w=800",
+        registrationDeadline: "2026-06-24",
+        lat: 17.3900,
+        lng: 78.4920
+      }
+    ]);
   }
+  
   try {
     const [rows] = await pool.query("SELECT * FROM events ORDER BY id DESC");
     res.json(rows);

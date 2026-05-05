@@ -117,19 +117,25 @@ export default function App() {
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u) {
-        const isAdminStatus = await api.checkAdminStatus(u.uid);
-        setIsAdmin(isAdminStatus);
-        // Fallback for claim system admin if needed - but check SQL admins table
-        if (!isAdminStatus) {
-            const adminsSnap = await getDocs(query(collection(db, 'admins'), limit(1)));
-            setHasNoAdmins(adminsSnap.empty);
+      try {
+        if (u) {
+          const isAdminStatus = await api.checkAdminStatus(u.uid);
+          setIsAdmin(isAdminStatus);
+          // Fallback for claim system admin if needed - but check SQL admins table
+          if (!isAdminStatus) {
+              const adminsSnap = await getDocs(query(collection(db, 'admins'), limit(1)));
+              setHasNoAdmins(adminsSnap.empty);
+          }
+        } else {
+          setIsAdmin(false);
+          setView('user');
         }
-      } else {
+      } catch (err) {
+        console.error("Auth check failed, continuing as user:", err);
         setIsAdmin(false);
-        setView('user');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     const fetchEvents = async () => {
