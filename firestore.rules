@@ -40,9 +40,9 @@ service cloud.firestore {
     
     // Admins collection - used for RBAC
     match /admins/{adminId} {
-      allow read, list: if isSignedIn(); 
+      allow read, list: if true; // Allow check for first admin
       allow create: if isSignedIn() && request.auth.uid == adminId;
-      allow update, delete: if false; // Admins cannot be modified/deleted once set in this logic
+      allow update, delete: if false; 
     }
 
     // Events

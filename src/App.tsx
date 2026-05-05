@@ -11,7 +11,9 @@ import BookingSummary from './components/BookingSummary';
 import AdminPanel from './components/AdminPanel';
 import MyBookings from './components/MyBookings';
 import TicketVerifier from './components/TicketVerifier';
+import SupportBot from './components/SupportBot';
 import { db, auth, handleFirestoreError } from './lib/firebase';
+import { api } from './services/api';
 import { collection, query, onSnapshot, orderBy, doc, getDoc, updateDoc, increment, setDoc, getDocs, limit } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,7 +27,9 @@ const INITIAL_EVENT: EventData = {
   venue: 'Main Auditorium, North Campus',
   price: 25,
   totalTickets: 250,
-  availableTickets: 142
+  availableTickets: 142,
+  lat: 17.3850,
+  lng: 78.4867 // Default to a central campus location
 };
 
 export default function App() {
@@ -46,6 +50,14 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [activeSlide, setActiveSlide] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then(res => res.json())
+      .then(data => setDbConnected(data.database === 'connected'))
+      .catch(() => setDbConnected(false));
+  }, []);
 
   const slides = [
     {
@@ -90,10 +102,13 @@ export default function App() {
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
-        const adminDoc = await getDoc(doc(db, 'admins', u.uid));
-        setIsAdmin(adminDoc.exists());
-        const adminsSnap = await getDocs(query(collection(db, 'admins'), limit(1)));
-        setHasNoAdmins(adminsSnap.empty);
+        const isAdminStatus = await api.checkAdminStatus(u.uid);
+        setIsAdmin(isAdminStatus);
+        // Fallback for claim system admin if needed - but check SQL admins table
+        if (!isAdminStatus) {
+            const adminsSnap = await getDocs(query(collection(db, 'admins'), limit(1)));
+            setHasNoAdmins(adminsSnap.empty);
+        }
       } else {
         setIsAdmin(false);
         setView('user');
@@ -101,15 +116,21 @@ export default function App() {
       setLoading(false);
     });
 
-    const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-    const unsubEvents = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
-      setEvents(docs);
-    });
+    const fetchEvents = async () => {
+        try {
+            const data = await api.getEvents();
+            setEvents(data);
+        } catch (err) {
+            console.error("Failed to load events from MySQL:", err);
+        }
+    };
+    fetchEvents();
+    // Refresh every 30s to simulate "real-time" without WebSockets
+    const refreshTimer = setInterval(fetchEvents, 30000);
 
     return () => {
       unsubAuth();
-      unsubEvents();
+      clearInterval(refreshTimer);
     };
   }, []);
 
@@ -219,6 +240,8 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      <SupportBot />
+
       <div className="max-w-7xl mx-auto h-full flex flex-col relative">
         {user ? (
           <div className="flex flex-col lg:flex-row gap-8 items-start relative min-h-[85vh]">
@@ -231,6 +254,18 @@ export default function App() {
                 <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 p-2 hover:bg-white/5 rounded-full transition-colors">
                   <CloseIcon className="w-6 h-6" />
                 </button>
+              </div>
+
+              <div className="mb-6 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 mx-1">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${dbConnected === true ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'}`} />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {dbConnected === true ? 'MySQL Connected' : 'MySQL Demo Mode'}
+                  </span>
+                </div>
+                {dbConnected === false && (
+                  <p className="text-[9px] text-slate-500 mt-1 leading-tight">Using local JS mock data. To use real SQL, setup MySQL locally.</p>
+                )}
               </div>
 
               <div className="space-y-1 mb-10">

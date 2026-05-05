@@ -4,11 +4,11 @@
  */
 
 import { useState, FormEvent, ChangeEvent } from 'react';
-import { Mail, Building, Ticket, AlertCircle, CreditCard, Loader2 } from 'lucide-react';
+import { Mail, Building, Ticket, AlertCircle, CreditCard, Loader2, ShieldCheck } from 'lucide-react';
 import { EventData, BookingData } from '../types';
-import { db, handleFirestoreError } from '../lib/firebase';
-import { collection, addDoc, Timestamp, updateDoc, doc, increment } from 'firebase/firestore';
+import { api } from '../services/api';
 import { loadStripe } from '@stripe/stripe-js';
+import OTPModal from './OTPModal';
 
 // Lazy initialization of Stripe client
 const stripePromise = loadStripe((import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -28,13 +28,13 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
   });
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isProcessing) return;
     
     setError(null);
-    setIsProcessing(true);
 
     const { name, email, department, tickets } = formData;
     const numTickets = parseInt(tickets);
@@ -42,19 +42,29 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
     // Basic Validations
     if (!name || !email || !department || !tickets) {
       setError('All fields are mandatory.');
-      setIsProcessing(false);
       return;
     }
 
     if (numTickets > event.availableTickets) {
       setError(`Only ${event.availableTickets} tickets are available.`);
-      setIsProcessing(false);
       return;
     }
 
+    // Trigger OTP verification first
+    setShowOTP(true);
+  };
+
+  const handleOTPVerified = async () => {
+    setShowOTP(false);
+    setIsProcessing(true);
+    setError(null);
+
+    const { name, email, department, tickets } = formData;
+    const numTickets = parseInt(tickets);
+
     try {
-      // 1. Create a pending booking in Firestore
-      const bookingData = {
+      // 1. Create a pending booking in MySQL
+      const bookingData: Partial<BookingData> = {
         eventId: event.id,
         eventName: event.name,
         userName: name,
@@ -62,11 +72,10 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
         userDepartment: department,
         ticketsCount: numTickets,
         totalAmount: numTickets * event.price,
-        paymentStatus: 'pending',
-        bookingDate: Timestamp.now().toDate().toISOString()
+        paymentStatus: 'pending'
       };
 
-      const bookingRef = await addDoc(collection(db, 'bookings'), bookingData);
+      const { id: bookingId } = await api.createBooking(bookingData);
 
       // 2. Create Stripe Checkout Session via Backend
       const response = await fetch('/api/create-checkout-session', {
@@ -76,7 +85,7 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
           eventName: event.name,
           ticketPrice: event.price,
           quantity: numTickets,
-          bookingId: bookingRef.id
+          bookingId: bookingId
         }),
       });
 
@@ -88,30 +97,15 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
 
       // 3. Redirect or Mock Simulate
       if (sessionId.startsWith('mock_session_')) {
-        // MOCK SUCCESS FLOW: Update DB directly and inform App
-        await updateDoc(doc(db, 'bookings', bookingRef.id), {
-          paymentStatus: 'paid',
-          stripeSessionId: sessionId
-        });
+        await api.updateBookingStatus(bookingId, 'paid');
         
-        await updateDoc(doc(db, 'events', event.id), {
-          availableTickets: increment(-numTickets)
-        });
-
         const finalBooking: BookingData = {
-          id: bookingRef.id,
-          eventId: event.id,
-          eventName: event.name,
-          userName: name,
-          userEmail: email,
-          userDepartment: department,
-          ticketsCount: numTickets,
-          totalAmount: numTickets * event.price,
+          id: String(bookingId),
+          ...bookingData,
           paymentStatus: 'paid',
-          bookingDate: bookingData.bookingDate
-        };
+          bookingDate: new Date().toISOString()
+        } as BookingData;
 
-        // Final delay for UX
         setTimeout(() => {
           onSuccess(finalBooking);
         }, 1200);
@@ -125,9 +119,6 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
       if (redirectError) throw new Error(redirectError.message);
 
     } catch (err: any) {
-      if (err.code === 'permission-denied') {
-        handleFirestoreError(err, 'create', 'bookings');
-      }
       console.error("Booking Error:", err);
       setError(err.message || "An unexpected error occurred. Please try again.");
       setIsProcessing(false);
@@ -239,6 +230,14 @@ export default function BookingForm({ event, user, onSuccess }: BookingFormProps
           </div>
         </div>
       </form>
+      
+      {showOTP && (
+        <OTPModal 
+          email={formData.email} 
+          onVerify={handleOTPVerified} 
+          onClose={() => setShowOTP(false)} 
+        />
+      )}
     </div>
   );
 }

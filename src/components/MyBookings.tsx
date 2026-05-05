@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError } from '../lib/firebase';
+import { api } from '../services/api';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, increment } from 'firebase/firestore';
 import { BookingData, EventData } from '../types';
 import { Ticket, Calendar, MapPin, Hash, CheckCircle, Clock, AlertCircle, XCircle, Loader2 } from 'lucide-react';
@@ -25,42 +26,31 @@ export default function MyBookings({ userEmail, onViewSummary, events }: MyBooki
     e.stopPropagation();
     setCancellingId(booking.id);
     try {
-      // 1. Mark booking as cancelled
-      await updateDoc(doc(db, 'bookings', booking.id), {
-        paymentStatus: 'cancelled'
-      });
-
-      // 2. Return tickets to event pool
-      await updateDoc(doc(db, 'events', booking.eventId), {
-        availableTickets: increment(booking.ticketsCount)
-      });
+      await api.updateBookingStatus(booking.id, 'cancelled');
+      fetchUserBookings();
     } catch (err: any) {
       console.error("Cancellation error:", err);
-      handleFirestoreError(err, 'update', `bookings/${booking.id}`);
     } finally {
       setCancellingId(null);
     }
   };
 
-  useEffect(() => {
+  const fetchUserBookings = async () => {
     if (!userEmail) return;
-
-    const q = query(
-      collection(db, 'bookings'),
-      where('userEmail', '==', userEmail),
-      orderBy('bookingDate', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as BookingData));
-      setUserBookings(bookings);
+    try {
+      const data = await api.getBookings(userEmail);
+      setUserBookings(data);
+    } catch (err) {
+      console.error("Error fetching user bookings from MySQL:", err);
+    } finally {
       setLoading(false);
-    }, (err) => {
-      console.error("Error fetching user bookings:", err);
-      setLoading(false);
-    });
+    }
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    fetchUserBookings();
+    const interval = setInterval(fetchUserBookings, 30000);
+    return () => clearInterval(interval);
   }, [userEmail]);
 
   if (loading) {

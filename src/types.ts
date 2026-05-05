@@ -12,6 +12,8 @@ export interface EventData {
   price: number;
   totalTickets: number;
   availableTickets: number;
+  lat?: number;
+  lng?: number;
   createdAt?: string;
 }
 

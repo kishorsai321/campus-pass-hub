@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
-import { db, handleFirestoreError } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy, increment } from 'firebase/firestore';
+import { useState, useEffect, FormEvent } from 'react';
+import { api } from '../services/api';
 import { EventData, BookingData } from '../types';
 import { Plus, Edit2, Trash2, LayoutDashboard, Calendar, Users, DollarSign, X, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,27 +14,20 @@ export default function AdminPanel() {
   const [bookings, setBookings] = useState<BookingData[]>([]);
   const [isAddingMode, setIsAddingMode] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventData | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | number | null>(null);
 
   const handleCancelBooking = async (booking: BookingData) => {
     setCancellingId(booking.id);
     try {
-      // 1. Mark booking as cancelled
-      await updateDoc(doc(db, 'bookings', booking.id), {
-        paymentStatus: 'cancelled'
-      });
-
-      // 2. Return tickets to event pool
-      await updateDoc(doc(db, 'events', booking.eventId), {
-        availableTickets: increment(booking.ticketsCount)
-      });
+      await api.updateBookingStatus(booking.id, 'cancelled');
+      fetchData(); // Refresh data
     } catch (err: any) {
       console.error("Cancellation error:", err);
-      handleFirestoreError(err, 'update', `bookings/${booking.id}`);
     } finally {
       setCancellingId(null);
     }
   };
+
   const [formData, setFormData] = useState({
     name: '',
     department: '',
@@ -43,26 +35,31 @@ export default function AdminPanel() {
     venue: '',
     price: '',
     totalTickets: '',
-    availableTickets: ''
+    availableTickets: '',
+    lat: '',
+    lng: ''
   });
 
+  const fetchData = async () => {
+    try {
+      const eventsData = await api.getEvents();
+      setEvents(eventsData);
+      
+      // Fetch all bookings for admin via proxy endpoint
+      const res = await fetch('/api/admin/bookings');
+      if (res.ok) {
+          const bookingsData = await res.json();
+          setBookings(bookingsData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin data:", err);
+    }
+  };
+
   useEffect(() => {
-    // Listen to events
-    const eventsQuery = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-    const unsubEvents = onSnapshot(eventsQuery, (snapshot) => {
-      setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EventData)));
-    });
-
-    // Listen to bookings
-    const bookingsQuery = query(collection(db, 'bookings'), orderBy('bookingDate', 'desc'));
-    const unsubBookings = onSnapshot(bookingsQuery, (snapshot) => {
-      setBookings(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as BookingData)));
-    });
-
-    return () => {
-      unsubEvents();
-      unsubBookings();
-    };
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const totalRevenue = bookings
@@ -71,23 +68,28 @@ export default function AdminPanel() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const data = {
-      ...formData,
+    const data: Partial<EventData> = {
+      name: formData.name,
+      department: formData.department,
+      dateTime: formData.dateTime,
+      venue: formData.venue,
       price: Number(formData.price),
       totalTickets: Number(formData.totalTickets),
       availableTickets: Number(formData.availableTickets || formData.totalTickets),
-      createdAt: Timestamp.now().toDate().toISOString()
+      lat: formData.lat ? Number(formData.lat) : undefined,
+      lng: formData.lng ? Number(formData.lng) : undefined
     };
 
     try {
       if (editingEvent) {
-        await updateDoc(doc(db, 'events', editingEvent.id), data);
+        await api.updateEvent(editingEvent.id, data);
       } else {
-        await addDoc(collection(db, 'events'), data);
+        await api.createEvent(data);
       }
+      fetchData();
       resetForm();
     } catch (err: any) {
-      handleFirestoreError(err, editingEvent ? 'update' : 'create', 'events');
+      console.error("Event save error:", err);
     }
   };
 
@@ -100,7 +102,9 @@ export default function AdminPanel() {
       venue: event.venue,
       price: String(event.price),
       totalTickets: String(event.totalTickets),
-      availableTickets: String(event.availableTickets)
+      availableTickets: String(event.availableTickets),
+      lat: event.lat ? String(event.lat) : '',
+      lng: event.lng ? String(event.lng) : ''
     });
     setIsAddingMode(true);
   };
@@ -108,15 +112,16 @@ export default function AdminPanel() {
   const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this event?")) {
       try {
-        await deleteDoc(doc(db, 'events', id));
+        await api.deleteEvent(id);
+        fetchData();
       } catch (err: any) {
-        handleFirestoreError(err, 'delete', `events/${id}`);
+        console.error("Delete error:", err);
       }
     }
   };
 
   const resetForm = () => {
-    setFormData({ name: '', department: '', dateTime: '', venue: '', price: '', totalTickets: '', availableTickets: '' });
+    setFormData({ name: '', department: '', dateTime: '', venue: '', price: '', totalTickets: '', availableTickets: '', lat: '', lng: '' });
     setEditingEvent(null);
     setIsAddingMode(false);
   };
@@ -296,6 +301,16 @@ export default function AdminPanel() {
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Venue</label>
                     <input required className="input-field" placeholder="Campus Hall A" value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Latitude</label>
+                      <input type="number" step="any" className="input-field" placeholder="17.3850" value={formData.lat} onChange={(e) => setFormData({...formData, lat: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Longitude</label>
+                      <input type="number" step="any" className="input-field" placeholder="78.4867" value={formData.lng} onChange={(e) => setFormData({...formData, lng: e.target.value})} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

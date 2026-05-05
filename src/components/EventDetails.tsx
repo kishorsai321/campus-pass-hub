@@ -5,6 +5,7 @@
 
 import { Calendar, MapPin, Users, DollarSign, Building } from 'lucide-react';
 import { EventData } from '../types';
+import EventMap from './EventMap';
 
 interface EventDetailsProps {
   event: EventData;
@@ -44,6 +45,11 @@ export default function EventDetails({ event }: EventDetailsProps) {
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Main Venue</p>
             <p className="text-slate-200 text-sm font-medium">{event.venue}</p>
           </div>
+        </div>
+
+        {/* Map Integration */}
+        <div className="mt-2">
+           <EventMap lat={event.lat} lng={event.lng} venueName={event.venue} />
         </div>
 
         <div className="flex items-center gap-4">
