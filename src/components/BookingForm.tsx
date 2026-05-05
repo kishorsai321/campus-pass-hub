@@ -4,7 +4,7 @@
  */
 
 import { useState, FormEvent, ChangeEvent } from 'react';
-import { Mail, Building, Ticket, AlertCircle, CreditCard, Loader2, ShieldCheck } from 'lucide-react';
+import { Mail, Building, Ticket, AlertCircle, CreditCard, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { EventData, BookingData } from '../types';
 import { api } from '../services/api';
 import { loadStripe } from '@stripe/stripe-js';
